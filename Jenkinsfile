@@ -87,7 +87,7 @@ pipeline {
             echo 'Pipeline failed. Check the stage logs above.'
         }
         always {
-            node {
+            script {
             sh 'docker logout || true'
             }
         }
