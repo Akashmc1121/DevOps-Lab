@@ -49,18 +49,19 @@ pipeline {
             }
         }
 
-        stage('Push to Docker Hub') {
-            steps {
-                script {
-                    // FIXED: Replaced raw shell logic with secure plugin credentials block injection
-                    docker.withRegistry('https://docker.io', 'dockerhub-creds') {
-                        dockerImage.push("${IMAGE_TAG}")
-                        dockerImage.push("latest")
-                    }
-                }
+     stage('Push to Docker Hub') {
+    steps {
+        script {
+            // This wrapper automatically handles 'docker login' and 'docker logout'
+            withDockerRegistry([credentialsId: 'dockerhub-creds', url: '']) {
+                sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_REPO}:${IMAGE_TAG}"
+                sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_REPO}:latest"
+                sh "docker push ${DOCKERHUB_REPO}:${IMAGE_TAG}"
+                sh "docker push ${DOCKERHUB_REPO}:latest"
             }
         }
-
+    }
+}
         stage('Deploy Container') {
             steps {
                 // FIXED: Changed host port to 8082 to avoid port conflicts with your native services on 8080
