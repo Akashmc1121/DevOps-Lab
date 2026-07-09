@@ -40,32 +40,31 @@ pipeline {
             }
         }
 
-       stage('Build Image') {
-    steps {
-        // Ensure you build it with the exact name 'devops-cicd-lab:20'
-        sh 'docker build -t devops-cicd-lab:20 .'
-    }
-}
-
-stage('Push Image') {
-    steps {
-        withDockerRegistry([credentialsId: 'docker-hub-credentials', url: 'https://index.docker.io/v1/']) {
-            sh 'docker tag devops-cicd-lab:20 mcakash/devops-cicd-lab:20'
-            sh 'docker push mcakash/devops-cicd-lab:20'
+      stage('Build Image') {
+        steps {
+            // Use double quotes and the dynamic variable
+            sh "docker build -t devops-cicd-lab:${IMAGE_TAG} ."
         }
     }
-}
-        stage('Deploy Container') {
-            steps {
-                // FIXED: Changed host port to 8082 to avoid port conflicts with your native services on 8080
-                sh """
-                    docker rm -f ${CONTAINER_NAME} || true
-                    docker run -d --name ${CONTAINER_NAME} -p 8082:8080 ${DOCKERHUB_REPO}:${IMAGE_TAG}
-                """
+
+    stage('Push Image') {
+        steps {
+            withDockerRegistry([credentialsId: 'docker-hub-credentials', url: 'https://index.docker.io/v1/']) {
+                // Update to use variables instead of hardcoded '20'
+                sh "docker tag devops-cicd-lab:${IMAGE_TAG} mcakash/devops-cicd-lab:${IMAGE_TAG}"
+                sh "docker push mcakash/devops-cicd-lab:${IMAGE_TAG}"
             }
         }
     }
 
+    stage('Deploy Container') {
+        steps {
+            sh """
+            docker rm -f ${CONTAINER_NAME} || true
+            docker run -d --name ${CONTAINER_NAME} -p 8082:8080 mcakash/devops-cicd-lab:${IMAGE_TAG}
+            """
+        }
+    }
     post {
         success {
             echo 'Pipeline completed successfully. Container is running.'
