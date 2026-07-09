@@ -40,25 +40,18 @@ pipeline {
             }
         }
 
-        stage('Build Docker Image') {
-            steps {
-                script {
-                    // FIXED: Uses the native Docker plugin API to build natively without shell lookups
-                    dockerImage = docker.build("${DOCKERHUB_REPO}:${IMAGE_TAG}", ".")
-                }
-            }
-        }
-
-     stage('Push to Docker Hub') {
+       stage('Build Image') {
     steps {
-        script {
-            // This wrapper automatically handles 'docker login' and 'docker logout'
-            withDockerRegistry([credentialsId: 'dockerhub-creds', url: '']) {
-                sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_REPO}:${IMAGE_TAG}"
-                sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_REPO}:latest"
-                sh "docker push ${DOCKERHUB_REPO}:${IMAGE_TAG}"
-                sh "docker push ${DOCKERHUB_REPO}:latest"
-            }
+        // Ensure you build it with the exact name 'devops-cicd-lab:20'
+        sh 'docker build -t devops-cicd-lab:20 .'
+    }
+}
+
+stage('Push Image') {
+    steps {
+        withDockerRegistry([credentialsId: 'docker-hub-credentials', url: 'https://index.docker.io/v1/']) {
+            sh 'docker tag devops-cicd-lab:20 mcakash/devops-cicd-lab:20'
+            sh 'docker push mcakash/devops-cicd-lab:20'
         }
     }
 }
