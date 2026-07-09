@@ -2,26 +2,19 @@ pipeline {
     agent any
 
     tools {
-        maven 'Maven3'   // Name must match a Maven installation configured in
-                         // Manage Jenkins > Tools
+        // Name must match the installation name in Manage Jenkins > Tools
+        maven 'Maven3'   
     }
 
     environment {
         IMAGE_NAME = "devops-cicd-lab"
         IMAGE_TAG  = "${env.BUILD_NUMBER}"
         CONTAINER_NAME = "devops-cicd-lab-container"
-        DOCKERHUB_CREDS = credentials('dockerhub-creds') // configured in Jenkins credentials store
-        DOCKERHUB_REPO  = "mcakash/devops-cicd-lab"
+        DOCKERHUB_REPO  = "mcakash/devops-cicd-lab" 
     }
 
     stages {
-
-        stage('Checkout') {
-            steps {
-                git branch: 'main',
-                    url: 'https://github.com/Akashmc1121/DevOps-Lab.git'
-            }
-        }
+        // FIXED: Removed the manual redundant checkout stage to fix the 'fatal: not in a git directory' error
 
         stage('Build with Maven') {
             steps {
@@ -35,7 +28,7 @@ pipeline {
             }
             post {
                 always {
-                    junit '**/target/surefire-reports/*.xml'
+                    junit 'target/surefire-reports/*.xml'
                 }
             }
         }
@@ -50,7 +43,8 @@ pipeline {
         stage('Build Docker Image') {
             steps {
                 script {
-                    dockerImage = docker.build("${IMAGE_NAME}:${IMAGE_TAG}")
+                    // FIXED: Uses the native Docker plugin API to build natively without shell lookups
+                    dockerImage = docker.build("${DOCKERHUB_REPO}:${IMAGE_TAG}", ".")
                 }
             }
         }
@@ -58,20 +52,21 @@ pipeline {
         stage('Push to Docker Hub') {
             steps {
                 script {
-                    sh "echo ${DOCKERHUB_CREDS_PSW} | docker login -u ${DOCKERHUB_CREDS_USR} --password-stdin"
-                    sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_REPO}:${IMAGE_TAG}"
-                    sh "docker tag ${IMAGE_NAME}:${IMAGE_TAG} ${DOCKERHUB_REPO}:latest"
-                    sh "docker push ${DOCKERHUB_REPO}:${IMAGE_TAG}"
-                    sh "docker push ${DOCKERHUB_REPO}:latest"
+                    // FIXED: Replaced raw shell logic with secure plugin credentials block injection
+                    docker.withRegistry('https://docker.io', 'dockerhub-creds') {
+                        dockerImage.push("${IMAGE_TAG}")
+                        dockerImage.push("latest")
+                    }
                 }
             }
         }
 
         stage('Deploy Container') {
             steps {
+                // FIXED: Changed host port to 8082 to avoid port conflicts with your native services on 8080
                 sh """
                     docker rm -f ${CONTAINER_NAME} || true
-                    docker run -d --name ${CONTAINER_NAME} -p 8080:8080 ${IMAGE_NAME}:${IMAGE_TAG}
+                    docker run -d --name ${CONTAINER_NAME} -p 8082:8080 ${DOCKERHUB_REPO}:${IMAGE_TAG}
                 """
             }
         }
@@ -84,8 +79,7 @@ pipeline {
         failure {
             echo 'Pipeline failed. Check the stage logs above.'
         }
-        always {
-            sh 'docker logout || true'
-        }
+        // FIXED: Removed the global 'always' shell step to prevent pipeline architecture crash
     }
 }
+
